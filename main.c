@@ -1,10 +1,12 @@
+#include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <ncurses.h>
-#define WIDTH 20
-#define HEIGHT 20
-#define FRAME_RATE 0.5
+#define GRID_WIDTH 20
+#define GRID_HEIGHT 20
+#define WAIT_TIME 2
+#define X_OFFSET (COLS / 2) - GRID_WIDTH
+#define Y_OFFSET (LINES / 2) - (GRID_HEIGHT / 2)
 /* Colors: */
 #define CBODY 1
 #define CHEAD 2
@@ -18,7 +20,7 @@ typedef struct {
 } pos_t;
 
 /* GLOBAL VARIABLES */
-unsigned char map[HEIGHT][WIDTH];
+unsigned char map[GRID_HEIGHT][GRID_WIDTH];
 pos_t         posh; // position of the head
 pos_t         post; // position of the tail
 pos_t         posf; // fruit position
@@ -35,8 +37,8 @@ static inline int isFruit(int x, int y) { return x == posf.x && y == posf.y; }
 
 void initMap() {
   int i, j;
-  for (i = 0; i < HEIGHT; ++i) {
-    for (j = 0; j < WIDTH; ++j) {
+  for (i = 0; i < GRID_HEIGHT; ++i) {
+    for (j = 0; j < GRID_WIDTH; ++j) {
       map[i][j] = 0;
     }
   }
@@ -47,25 +49,24 @@ void initMap() {
 /* display `g_map` to stdout */
 void displayMap() {
   int i, j;
-  int x = 0, y = 0;
 
-  for (i = 0; i < HEIGHT; ++i, y+=1) {
-    for (j = 0; j < WIDTH; ++j, x+=1) {
+  for (i = 0; i < GRID_HEIGHT; ++i) {
+    for (j = 0; j < GRID_WIDTH; ++j) {
       if (isFruit(j, i)) { // fruit color
         attron(COLOR_PAIR(CFRUIT));
-        mvaddstr(i, 2*j, "  ");
+        mvaddstr(i + Y_OFFSET, 2 * j + X_OFFSET, "  ");
         attroff(COLOR_PAIR(CFRUIT));
       } else if (isHead(j, i)) { // head color
         attron(COLOR_PAIR(CHEAD));
-        mvaddstr(i, 2*j, "  ");
+        mvaddstr(i + Y_OFFSET, 2 * j + X_OFFSET, "  ");
         attroff(COLOR_PAIR(CHEAD));
       } else if (map[i][j] > 0) { // body color
         attron(COLOR_PAIR(CBODY));
-        mvaddstr(i, 2*j, "  ");
+        mvaddstr(i + Y_OFFSET, 2 * j + X_OFFSET, "  ");
         attroff(COLOR_PAIR(CBODY));
       } else { // map color
         attron(COLOR_PAIR(CMAP));
-        mvaddstr(i, 2*j, "  ");
+        mvaddstr(i + Y_OFFSET, 2 * j + X_OFFSET, "  ");
         attroff(COLOR_PAIR(CMAP));
       }
     }
@@ -75,28 +76,28 @@ void displayMap() {
 /* moving function */
 
 int moveUp() {
-  int r = posh.y > 0 && map[posh.y - 1][posh.x] == 0;
+  int r = (posh.y > 0 && map[posh.y - 1][posh.x] == 0);
   if (r)
     posh.y--;
   return r;
 }
 
 int moveDown() {
-  int r = posh.y < HEIGHT && map[posh.y + 1][posh.x] == 0;
+  int r = (posh.y < GRID_HEIGHT && map[posh.y + 1][posh.x] == 0);
   if (r)
     posh.y++;
   return r;
 }
 
 int moveLeft() {
-  int r = posh.x > 0 && map[posh.y][posh.x - 1] == 0;
+  int r = (posh.x > 0 && map[posh.y][posh.x - 1] == 0);
   if (r)
     posh.x--;
   return r;
 }
 
 int moveRight() {
-  int r = posh.x < WIDTH && map[posh.y][posh.x + 1] == 0;
+  int r = (posh.x < GRID_WIDTH && map[posh.y][posh.x + 1] == 0);
   if (r)
     posh.x++;
   return r;
@@ -107,11 +108,11 @@ void moveTail() {
   unsigned char tailNum = map[post.y][post.x];
   map[post.y][post.x] = 0;
   // update the tail
-  if (post.x < WIDTH && map[post.y][post.x + 1] == tailNum - 1) {
+  if (post.x < GRID_WIDTH && map[post.y][post.x + 1] == tailNum - 1) {
     post.x++;
   } else if (post.x > 0 && map[post.y][post.x - 1] == tailNum - 1) {
     post.x--;
-  } else if (post.y < HEIGHT && map[post.y + 1][post.x] == tailNum - 1) {
+  } else if (post.y < GRID_HEIGHT && map[post.y + 1][post.x] == tailNum - 1) {
     post.y++;
   } else if (post.y > 0 && map[post.y - 1][post.x] == tailNum - 1) {
     post.y--;
@@ -122,11 +123,11 @@ void moveTail() {
 void updateSnake(int x, int y) {
   map[y][x]++;
   if (!isTail(x, y)) {
-    if (x < WIDTH && map[y][x + 1] == map[y][x])
+    if (x < GRID_WIDTH && map[y][x + 1] == map[y][x])
       updateSnake(x + 1, y);
     else if (x > 0 && map[y][x - 1] == map[y][x])
       updateSnake(x - 1, y);
-    else if (y < HEIGHT && map[y + 1][x] == map[y][x])
+    else if (y < GRID_HEIGHT && map[y + 1][x] == map[y][x])
       updateSnake(x, y + 1);
     else if (y > 0 && map[y - 1][x] == map[y][x])
       updateSnake(x, y - 1);
@@ -146,8 +147,8 @@ void updateMovement() {
     moveTail();
   } else {
     length++;
-    posf.x = rand() % WIDTH;
-    posf.y = rand() % HEIGHT;
+    posf.x = rand() % GRID_WIDTH;
+    posf.y = rand() % GRID_HEIGHT;
   }
 }
 
@@ -159,7 +160,7 @@ int eventHandler(char act) {
     if (moveUp()) {
       updateMovement();
       dir = 'k';
-    } else {
+    } else if (dir != 'j') {
       output = 0;
     }
     break;
@@ -167,7 +168,7 @@ int eventHandler(char act) {
     if (moveDown()) {
       updateMovement();
       dir = 'j';
-    } else {
+    } else if (dir != 'k') {
       output = 0;
     }
     break;
@@ -175,7 +176,7 @@ int eventHandler(char act) {
     if (moveRight()) {
       updateMovement();
       dir = 'l';
-    } else {
+    } else if (dir != 'h') {
       output = 0;
     }
     break;
@@ -183,7 +184,7 @@ int eventHandler(char act) {
     if (moveLeft()) {
       updateMovement();
       dir = 'h';
-    } else {
+    } else if (dir != 'l') {
       output = 0;
     }
     break;
@@ -195,8 +196,8 @@ int eventHandler(char act) {
 }
 
 void run() {
-  int  cont = 1;
-  char resp;
+  int     cont = 1;
+  char    resp;
 
   initscr();
   start_color();
@@ -204,11 +205,11 @@ void run() {
   init_pair(CBODY, COLOR_BLACK, COLOR_CYAN);
   init_pair(CHEAD, COLOR_BLACK, COLOR_BLUE);
   init_pair(CFRUIT, COLOR_BLACK, COLOR_RED);
-  halfdelay(2);
+  halfdelay(WAIT_TIME);
   while (cont) {
     clear();
-    refresh();
     displayMap();
+    refresh();
     resp = getch();
     if (resp == ERR)
       resp = dir;
@@ -216,6 +217,7 @@ void run() {
   }
   endwin();
 
+  printf("IMPORTANT: Y_OFFSET: %d\n", Y_OFFSET);
   printf("Score:\n");
   printf("- fruit: %d\n", length - 2);
   printf("- length: %d\n", length);
@@ -225,14 +227,14 @@ int main(void) {
   // init randomizer
   srand(time(NULL));
   // setting up global varibles
-  posh.x = 10;
+  posh.x = 0;
   posh.y = 10;
-  post.x = 10;
+  post.x = 0;
   post.y = 9;
   length = 2;
   dir = 'j';
-  posf.x = rand() % WIDTH;
-  posf.y = rand() % HEIGHT;
+  posf.x = rand() % GRID_WIDTH;
+  posf.y = rand() % GRID_HEIGHT;
   initMap();
   run();
   return 0;
