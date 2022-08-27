@@ -73,6 +73,13 @@ void displayMap() {
   }
 }
 
+/* display the current score on the right of the map */
+void displayScore() {
+  char formatedScore[20];
+  sprintf(formatedScore, "score: %d", length - 2);
+  mvaddstr(Y_OFFSET - 1, X_OFFSET, formatedScore);
+}
+
 /* moving function */
 
 int moveUp() {
@@ -83,7 +90,7 @@ int moveUp() {
 }
 
 int moveDown() {
-  int r = (posh.y < GRID_HEIGHT && map[posh.y + 1][posh.x] == 0);
+  int r = (posh.y + 1 < GRID_HEIGHT && map[posh.y + 1][posh.x] == 0);
   if (r)
     posh.y++;
   return r;
@@ -97,7 +104,7 @@ int moveLeft() {
 }
 
 int moveRight() {
-  int r = (posh.x < GRID_WIDTH && map[posh.y][posh.x + 1] == 0);
+  int r = (posh.x + 1 < GRID_WIDTH && map[posh.y][posh.x + 1] == 0);
   if (r)
     posh.x++;
   return r;
@@ -196,10 +203,20 @@ int eventHandler(char act) {
 }
 
 void run() {
-  int     cont = 1;
-  char    resp;
+  int  cont = 1;
+  char resp;
 
   initscr();
+  cbreak(); // turn on cbreak mode
+  noecho(); // turn on noecho mode
+
+  /* if colors are not supported by the terminal or tty */
+  if (has_colors() == FALSE) {
+    fprintf(stderr, "error: colors not supported!\n");
+    endwin();
+    exit(EXIT_FAILURE);
+  }
+
   start_color();
   init_pair(CMAP, COLOR_BLACK, COLOR_GREEN);
   init_pair(CBODY, COLOR_BLACK, COLOR_CYAN);
@@ -209,6 +226,8 @@ void run() {
   while (cont) {
     clear();
     displayMap();
+    displayScore();
+    mvaddstr(LINES-1, COLS-1, NULL); // get rid of the white cursor
     refresh();
     resp = getch();
     if (resp == ERR)
@@ -217,6 +236,7 @@ void run() {
   }
   endwin();
 
+  // TODO: update a score file
   printf("IMPORTANT: Y_OFFSET: %d\n", Y_OFFSET);
   printf("Score:\n");
   printf("- fruit: %d\n", length - 2);
