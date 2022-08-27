@@ -24,7 +24,8 @@ unsigned char map[GRID_HEIGHT][GRID_WIDTH];
 pos_t         posh; // position of the head
 pos_t         post; // position of the tail
 pos_t         posf; // fruit position
-int           length;
+int           score;
+int           state; // 0: game, 1: victory, -1: defeate, 2:quit
 char          dir;
 
 /* FUNCTIONS */
@@ -47,7 +48,7 @@ void initMap() {
 }
 
 /* display `g_map` to stdout */
-void displayMap() {
+void drawMap() {
   int i, j;
 
   for (i = 0; i < GRID_HEIGHT; ++i) {
@@ -74,10 +75,57 @@ void displayMap() {
 }
 
 /* display the current score on the right of the map */
-void displayScore() {
+void drawScore() {
   char formatedScore[20];
-  sprintf(formatedScore, "score: %d", length - 2);
+  sprintf(formatedScore, "score: %d", score);
   mvaddstr(Y_OFFSET - 1, X_OFFSET, formatedScore);
+}
+
+/* Display a smiling face in green */
+void drawWinScr() {
+  int picture[6][5] = {{0, 1, 0, 1, 0}, {0, 1, 0, 1, 0}, {0, 1, 0, 1, 0},
+		       {0, 0, 0, 0, 0}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}};
+  int i,j;
+
+  attron(COLOR_PAIR(CBODY));
+  for (i = 0; i < 6; ++i) {
+    for (j = 0; j < 5; ++j) {
+      if (picture[i][j] == 1) {
+	mvaddstr(i + (LINES - 6)/2, 2*j + (COLS - 5)/2, "  ");
+      }
+    }
+  }
+  attroff(COLOR_PAIR(CBODY));
+}
+
+/* Display not smilings face in red */
+void drawLooseScr() {
+  int picture[6][5] = {{0, 1, 0, 1, 0}, {0, 1, 0, 1, 0}, {0, 1, 0, 1, 0},
+		       {0, 0, 0, 0, 0}, {0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}};
+  int i,j;
+
+  attron(COLOR_PAIR(CFRUIT));
+  for (i = 0; i < 6; ++i) {
+    for (j = 0; j < 5; ++j) {
+      if (picture[i][j] == 1) {
+	mvaddstr(i + (LINES - 6)/2, 2*j + (COLS - 5)/2, "  ");
+      }
+    }
+  }
+  attroff(COLOR_PAIR(CFRUIT));
+}
+
+/* Main draw function */
+void draw() {
+  if (state == 0) {
+    drawMap();
+    drawScore();
+  } else if (state == -1) {
+    drawLooseScr();
+  } else {
+    drawWinScr();
+  }
+  mvaddstr(LINES - 1, COLS - 1, NULL); // get rid of the white cursor
 }
 
 /* moving function */
@@ -153,22 +201,25 @@ void updateMovement() {
   if (!isFruit(posh.x, posh.y)) {
     moveTail();
   } else {
-    length++;
-    posf.x = rand() % GRID_WIDTH;
-    posf.y = rand() % GRID_HEIGHT;
+    score++;
+    if (score == GRID_WIDTH * GRID_HEIGHT) {
+      state = 1;
+    } else {
+      // TODO: get a position out of the snake
+      posf.x = rand() % GRID_WIDTH;
+      posf.y = rand() % GRID_HEIGHT;
+    }
   }
 }
 
-int eventHandler(char act) {
-  int output = 1;
-
-  switch (act) {
+void moveSnake(char dir) {
+  switch (dir) {
   case 'k':
     if (moveUp()) {
       updateMovement();
       dir = 'k';
     } else if (dir != 'j') {
-      output = 0;
+      state = -1;
     }
     break;
   case 'j':
@@ -176,7 +227,7 @@ int eventHandler(char act) {
       updateMovement();
       dir = 'j';
     } else if (dir != 'k') {
-      output = 0;
+      state = -1;
     }
     break;
   case 'l':
@@ -184,7 +235,7 @@ int eventHandler(char act) {
       updateMovement();
       dir = 'l';
     } else if (dir != 'h') {
-      output = 0;
+      state = -1;
     }
     break;
   case 'h':
@@ -192,19 +243,30 @@ int eventHandler(char act) {
       updateMovement();
       dir = 'h';
     } else if (dir != 'l') {
-      output = 0;
+      state = -1;
     }
     break;
-  case 'q':
-    output = 0;
-    break;
   }
-  return output;
+}
+
+/**
+ * Take the key entered by the player, if there is no key (ERR) the snake goes
+ * kstrait forward so the direction doesn't change. Otherwise, either the game is
+ * finished so we quit the program on any key-presse, or we return the key entered
+ * kby the player.
+*/
+char eventHandler(char key) {
+  char nextDir = key;
+    if (key == ERR) // no answer
+      nextDir = dir;
+    else if (state == 1 || state == -1 || key == 'q') // end the game on any keypress
+      state = 2;
+    return nextDir;
 }
 
 void run() {
-  int  cont = 1;
   char resp;
+  char nextDir;
 
   initscr();
   cbreak(); // turn on cbreak mode
@@ -217,30 +279,26 @@ void run() {
     exit(EXIT_FAILURE);
   }
 
+  // define some colors
   start_color();
   init_pair(CMAP, COLOR_BLACK, COLOR_GREEN);
   init_pair(CBODY, COLOR_BLACK, COLOR_CYAN);
   init_pair(CHEAD, COLOR_BLACK, COLOR_BLUE);
   init_pair(CFRUIT, COLOR_BLACK, COLOR_RED);
   halfdelay(WAIT_TIME);
-  while (cont) {
-    clear();
-    displayMap();
-    displayScore();
-    mvaddstr(LINES-1, COLS-1, NULL); // get rid of the white cursor
-    refresh();
+
+  while (state != 2) {
     resp = getch();
-    if (resp == ERR)
-      resp = dir;
-    cont = eventHandler(resp);
+    nextDir = eventHandler(resp);
+    moveSnake(nextDir); // move the snake at each iteration
+    clear();
+    draw();
+    refresh();
   }
   endwin();
 
   // TODO: update a score file
-  printf("IMPORTANT: Y_OFFSET: %d\n", Y_OFFSET);
-  printf("Score:\n");
-  printf("- fruit: %d\n", length - 2);
-  printf("- length: %d\n", length);
+  printf("Score: %d\n", score);
 }
 
 int main(void) {
@@ -251,8 +309,9 @@ int main(void) {
   posh.y = 10;
   post.x = 0;
   post.y = 9;
-  length = 2;
+  score = 0;
   dir = 'j';
+  state = 0;
   posf.x = rand() % GRID_WIDTH;
   posf.y = rand() % GRID_HEIGHT;
   initMap();
