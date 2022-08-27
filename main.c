@@ -212,8 +212,8 @@ void updateMovement() {
   }
 }
 
-void moveSnake(char dir) {
-  switch (dir) {
+void moveSnake(char nextDir) {
+  switch (nextDir) {
   case 'k':
     if (moveUp()) {
       updateMovement();
