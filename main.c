@@ -189,6 +189,43 @@ void updateSnake(int x, int y) {
   }
 }
 
+/**
+ * Update the global variable `posf` with a new position for the new fruit.
+ */
+void generateNewFruit() {
+  int i, j;
+  int founded = 0;
+
+  posf.x = rand() % GRID_WIDTH;
+  posf.y = rand() % GRID_HEIGHT;
+
+  /* Move the fruit if it appears on the snake.
+   * Just search an available case to put the fruit in before or after the
+   * random position we've just found so the food never appears on the snake and
+   * it still "random".
+   */
+  if (map[posf.y][posf.x] > 0) {
+    for (i = posf.y; !founded && i < GRID_HEIGHT; ++i) {
+      for (j = posf.x; !founded && j < GRID_WIDTH; ++j) {
+	if (map[i][j] == 0) {
+	  posf.y = i;
+	  posf.x = j;
+	  founded = 1;
+	}
+      }
+    }
+    for (i = posf.y; !founded && i > 0; --i) {
+      for (j = posf.x; !founded && j > 0; --j) {
+	if (map[i][j] == 0) {
+	  posf.y = i;
+	  posf.x = j;
+	  founded = 1;
+	}
+      }
+    }
+  }
+}
+
 /* update the last movement
  *
  * The snake is a suite of numbers, starting from 1 (the head) and continuing
@@ -212,6 +249,9 @@ void updateMovement() {
   }
 }
 
+/**
+ * Move and update the snake or end the game if the snike hit a wall or itself.
+ */
 void moveSnake(char nextDir) {
   switch (nextDir) {
   case 'k':
@@ -264,6 +304,29 @@ char eventHandler(char key) {
     return nextDir;
 }
 
+/**
+ * Update the highest score in the file: `./highestScore.txt`
+ */
+void updateHighestScore() {
+  FILE *f = fopen("./highestScore.txt", "w");
+  int oldScore = 0;
+
+  if (f) {
+    // get the old score
+    rewind(f);
+    fscanf(f, "%d", &oldScore);
+
+    // write the new score
+    if (score > oldScore) {
+      fprintf(f, "%d\n", score);
+    }
+
+    fclose(f);
+  } else {
+    fprintf(stderr, "ERROR: can't open score file.\n");
+  }
+}
+
 void run() {
   char resp;
   char nextDir;
@@ -297,8 +360,8 @@ void run() {
   }
   endwin();
 
-  // TODO: update a score file
   printf("Score: %d\n", score);
+  updateHighestScore();
 }
 
 int main(void) {
